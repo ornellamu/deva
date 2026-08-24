@@ -1,0 +1,6 @@
+{
+  "name": "Deva Hospital Recruitment Portal",
+  "description": "Full-stack modern healthcare recruitment platform for Deva Hospital with job management, multi-document application pipeline, admin review suite, and automated email notifications.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

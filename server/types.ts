@@ -1,0 +1,103 @@
+export type UserRole = 'applicant' | 'admin';
+
+export interface User {
+  id: number;
+  full_name: string;
+  email: string;
+  phone: string;
+  password_hash: string;
+  role: UserRole;
+  created_at: string;
+  updated_at: string;
+}
+
+export type JobCategory =
+  | 'Physician'
+  | 'Nurse'
+  | 'Allied Health'
+  | 'Administration'
+  | 'Laboratory'
+  | 'Pharmacy'
+  | 'Other Healthcare Positions';
+
+export type JobStatus = 'open' | 'closed' | 'expired';
+
+export interface Job {
+  id: number;
+  title: string;
+  department: string;
+  category: JobCategory;
+  location: string;
+  description: string;
+  requirements: string;
+  deadline: string; // YYYY-MM-DD
+  number_of_positions: number;
+  status: JobStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ApplicationStatus = 'Submitted' | 'Accepted' | 'Rejected';
+
+export interface Application {
+  id: number;
+  user_id: number;
+  job_id: number;
+  status: ApplicationStatus;
+  notes?: string;
+  decision_date?: string;
+  applied_at: string;
+  updated_at: string;
+  // Joined fields for display
+  user?: {
+    full_name: string;
+    email: string;
+    phone: string;
+  };
+  job?: {
+    title: string;
+    department: string;
+    category: JobCategory;
+    deadline: string;
+    location: string;
+  };
+  documents?: DocumentRecord[];
+}
+
+export type DocumentType = 'cv' | 'application_letter' | 'national_id' | 'certificate';
+
+export interface DocumentRecord {
+  id: number;
+  application_id: number;
+  document_type: DocumentType;
+  file_name: string;
+  file_url: string;
+  file_size: number;
+  mime_type: string;
+  storage_id: string;
+  created_at: string;
+}
+
+export type EmailType = 'submitted_confirmation' | 'accepted_notification' | 'rejected_notification';
+
+export interface EmailLog {
+  id: number;
+  recipient_email: string;
+  recipient_name: string;
+  subject: string;
+  email_type: EmailType;
+  application_id: number;
+  status: 'sent' | 'delivered' | 'failed';
+  sent_at: string;
+  body_preview?: string;
+}
+
+export interface AdminStats {
+  total_jobs: number;
+  active_jobs: number;
+  total_applications: number;
+  submitted_applications: number;
+  accepted_applications: number;
+  rejected_applications: number;
+  departments_count: number;
+}
