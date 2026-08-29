@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import bcrypt from 'bcryptjs';
 import {
   User,
@@ -10,7 +12,9 @@ import {
   ApplicationStatus,
 } from './types.js';
 
-// In-Memory Relational Engine mirroring MySQL schema with foreign keys and unique constraints
+const DB_FILE_PATH = path.join(process.cwd(), 'data', 'db_store.json');
+
+// In-Memory Relational Engine mirroring MySQL schema with durable file-based persistence
 class RelationalDatabase {
   private users: User[] = [];
   private jobs: Job[] = [];
@@ -23,18 +27,68 @@ class RelationalDatabase {
   private nextDocId = 1;
 
   constructor() {
-    this.seedDatabase();
+    const loaded = this.loadFromDisk();
+    if (!loaded) {
+      this.seedDatabase();
+      this.persist();
+    }
+  }
+
+  private loadFromDisk(): boolean {
+    try {
+      if (fs.existsSync(DB_FILE_PATH)) {
+        const raw = fs.readFileSync(DB_FILE_PATH, 'utf-8');
+        const data = JSON.parse(raw);
+        if (data && Array.isArray(data.users) && Array.isArray(data.jobs) && data.users.length > 0) {
+          this.users = data.users || [];
+          this.jobs = data.jobs || [];
+          this.applications = data.applications || [];
+          this.documents = data.documents || [];
+          this.nextUserId = data.nextUserId || (this.users.length ? Math.max(...this.users.map((u: any) => u.id)) + 1 : 1);
+          this.nextJobId = data.nextJobId || (this.jobs.length ? Math.max(...this.jobs.map((j: any) => j.id)) + 1 : 1);
+          this.nextApplicationId = data.nextApplicationId || (this.applications.length ? Math.max(...this.applications.map((a: any) => a.id)) + 1 : 1);
+          this.nextDocId = data.nextDocId || (this.documents.length ? Math.max(...this.documents.map((d: any) => d.id)) + 1 : 1);
+          return true;
+        }
+      }
+    } catch (err) {
+      console.error('Error reading database store from disk, reseeding:', err);
+    }
+    return false;
+  }
+
+  public persist(): void {
+    try {
+      const dir = path.dirname(DB_FILE_PATH);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      const state = {
+        nextUserId: this.nextUserId,
+        nextJobId: this.nextJobId,
+        nextApplicationId: this.nextApplicationId,
+        nextDocId: this.nextDocId,
+        users: this.users,
+        jobs: this.jobs,
+        applications: this.applications,
+        documents: this.documents,
+      };
+      fs.writeFileSync(DB_FILE_PATH, JSON.stringify(state, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('Failed to write database store to disk:', err);
+    }
   }
 
   private seedDatabase() {
     // 1. Initial Admin User
-    // Default credentials: admin@devahospital.org / Admin@Deva2026!
-    const adminPasswordHash = bcrypt.hashSync('Admin@Deva2026!', 10);
+    // Default requested credentials: Username "Admin" (or email admin@devahospital.org) and Password "admin123"
+    const adminPasswordHash = bcrypt.hashSync('admin123', 10);
     this.users.push({
       id: this.nextUserId++,
-      full_name: 'Dr. Evelyn Vance (Chief of HR)',
+      full_name: 'Dr. Evelyn Vance (Chief of HR / Hospital Admin)',
       email: 'admin@devahospital.org',
       phone: '+1 (800) 555-0199',
+      username: 'Admin',
       password_hash: adminPasswordHash,
       role: 'admin',
       created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
@@ -48,6 +102,7 @@ class RelationalDatabase {
       full_name: 'Dr. Michael Chen, MD',
       email: 'michael.chen@gmail.com',
       phone: '+1 (555) 234-8901',
+      username: 'mchen_md',
       password_hash: applicant1Hash,
       role: 'applicant',
       created_at: new Date(Date.now() - 10 * 86400000).toISOString(),
@@ -60,6 +115,7 @@ class RelationalDatabase {
       full_name: 'Sarah Jenkins, BSN RN',
       email: 'sarah.jenkins@gmail.com',
       phone: '+1 (555) 345-6789',
+      username: 'sjenkins_rn',
       password_hash: applicant2Hash,
       role: 'applicant',
       created_at: new Date(Date.now() - 8 * 86400000).toISOString(),
@@ -72,6 +128,7 @@ class RelationalDatabase {
       full_name: 'David Mwangi, PharmD',
       email: 'david.mwangi@gmail.com',
       phone: '+1 (555) 456-7890',
+      username: 'dmwangi_rx',
       password_hash: applicant3Hash,
       role: 'applicant',
       created_at: new Date(Date.now() - 5 * 86400000).toISOString(),
@@ -331,7 +388,23 @@ class RelationalDatabase {
 
   // --- Users Table Operations ---
   public getUserByEmail(email: string): User | undefined {
-    return this.users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+    if (!email) return undefined;
+    const clean = email.trim().toLowerCase();
+    return this.users.find((u) => u.email.toLowerCase() === clean);
+  }
+
+  public getUserByUsernameOrEmail(identifier: string): User | undefined {
+    if (!identifier) return undefined;
+    const clean = identifier.trim().toLowerCase();
+    const cleanDigits = identifier.replace(/\D/g, '');
+    return this.users.find(
+      (u) =>
+        u.email.toLowerCase() === clean ||
+        (u.username && u.username.toLowerCase() === clean) ||
+        u.full_name.toLowerCase() === clean ||
+        (cleanDigits.length >= 7 && u.phone.replace(/\D/g, '').includes(cleanDigits)) ||
+        (u.role === 'admin' && (clean === 'admin' || clean === 'admin@devahospital.org' || clean === 'admin@devahospital.com'))
+    );
   }
 
   public getUserById(id: number): User | undefined {
@@ -342,36 +415,42 @@ class RelationalDatabase {
     full_name: string;
     email: string;
     phone: string;
+    username?: string;
     password_hash: string;
     role?: 'applicant' | 'admin';
   }): User {
+    const rawUsername = userData.username ? userData.username.trim() : userData.email.split('@')[0].trim();
     const newUser: User = {
       id: this.nextUserId++,
-      full_name: userData.full_name,
-      email: userData.email.toLowerCase(),
-      phone: userData.phone,
+      full_name: userData.full_name.trim(),
+      email: userData.email.trim().toLowerCase(),
+      phone: userData.phone.trim(),
+      username: rawUsername,
       password_hash: userData.password_hash,
       role: userData.role || 'applicant',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
     this.users.push(newUser);
+    this.persist();
     return newUser;
   }
 
   public updateUser(
     id: number,
-    data: { full_name?: string; email?: string; phone?: string; password_hash?: string }
+    data: { full_name?: string; email?: string; phone?: string; username?: string; password_hash?: string }
   ): User | null {
     const user = this.getUserById(id);
     if (!user) return null;
 
-    if (data.full_name) user.full_name = data.full_name;
-    if (data.email) user.email = data.email.toLowerCase();
-    if (data.phone) user.phone = data.phone;
+    if (data.full_name) user.full_name = data.full_name.trim();
+    if (data.email) user.email = data.email.trim().toLowerCase();
+    if (data.phone) user.phone = data.phone.trim();
+    if (data.username) user.username = data.username.trim();
     if (data.password_hash) user.password_hash = data.password_hash;
     user.updated_at = new Date().toISOString();
 
+    this.persist();
     return user;
   }
 
@@ -428,6 +507,7 @@ class RelationalDatabase {
       updated_at: new Date().toISOString(),
     };
     this.jobs.unshift(newJob);
+    this.persist();
     return newJob;
   }
 
@@ -436,6 +516,7 @@ class RelationalDatabase {
     if (!job) return null;
 
     Object.assign(job, jobData, { updated_at: new Date().toISOString() });
+    this.persist();
     return job;
   }
 
@@ -443,15 +524,8 @@ class RelationalDatabase {
     const index = this.jobs.findIndex((j) => j.id === id);
     if (index === -1) return false;
 
-    // Check if job has applications; if so, soft close instead of destroying history
-    const hasApps = this.applications.some((a) => a.job_id === id);
-    if (hasApps) {
-      this.jobs[index].status = 'closed';
-      this.jobs[index].updated_at = new Date().toISOString();
-      return true;
-    }
-
     this.jobs.splice(index, 1);
+    this.persist();
     return true;
   }
 
@@ -460,7 +534,17 @@ class RelationalDatabase {
     return this.applications.some((app) => app.user_id === userId && app.job_id === jobId);
   }
 
-  public createApplication(userId: number, jobId: number, notes?: string): Application {
+  public createApplication(data: {
+    userId: number;
+    jobId: number;
+    notes?: string;
+    years_of_experience?: string;
+    license_number?: string;
+    qualification?: string;
+    current_employer?: string;
+    notice_period?: string;
+  }): Application {
+    const { userId, jobId, notes, years_of_experience, license_number, qualification, current_employer, notice_period } = data;
     // Enforce Rule 4: Unique constraint on user_id + job_id
     if (this.hasUserApplied(userId, jobId)) {
       throw new Error('You have already submitted an application for this position.');
@@ -472,11 +556,18 @@ class RelationalDatabase {
       job_id: jobId,
       status: 'Submitted',
       notes,
+      years_of_experience,
+      license_number,
+      qualification,
+      current_employer,
+      notice_period,
+      responses: [],
       applied_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
     this.applications.unshift(newApp);
+    this.persist();
     return newApp;
   }
 
@@ -490,7 +581,14 @@ class RelationalDatabase {
 
     return {
       ...app,
-      user: user ? { full_name: user.full_name, email: user.email, phone: user.phone } : undefined,
+      user: user
+        ? {
+            full_name: user.full_name,
+            email: user.email,
+            phone: user.phone,
+            username: user.username,
+          }
+        : undefined,
       job: job
         ? {
             title: job.title,
@@ -530,16 +628,20 @@ class RelationalDatabase {
   public getAllApplications(filters?: { status?: ApplicationStatus; jobId?: number; search?: string }): Application[] {
     return this.applications
       .filter((app) => {
-        if (filters?.status && app.status !== filters.status) return false;
+        if (filters?.status && filters.status !== ('All' as any) && app.status !== filters.status) return false;
         if (filters?.jobId && app.job_id !== filters.jobId) return false;
         if (filters?.search) {
           const user = this.getUserById(app.user_id);
           const job = this.getJobById(app.job_id);
           const s = filters.search.toLowerCase();
           const matchUser =
-            user?.full_name.toLowerCase().includes(s) || user?.email.toLowerCase().includes(s);
+            user?.full_name.toLowerCase().includes(s) ||
+            user?.email.toLowerCase().includes(s) ||
+            (user?.username && user.username.toLowerCase().includes(s)) ||
+            (app.license_number && app.license_number.toLowerCase().includes(s));
           const matchJob = job?.title.toLowerCase().includes(s) || job?.department.toLowerCase().includes(s);
-          if (!matchUser && !matchJob) return false;
+          const matchNotes = app.notes?.toLowerCase().includes(s) || app.admin_response?.toLowerCase().includes(s);
+          if (!matchUser && !matchJob && !matchNotes) return false;
         }
         return true;
       })
@@ -549,7 +651,14 @@ class RelationalDatabase {
         const docs = this.getDocumentsByApplicationId(app.id);
         return {
           ...app,
-          user: user ? { full_name: user.full_name, email: user.email, phone: user.phone } : undefined,
+          user: user
+            ? {
+                full_name: user.full_name,
+                email: user.email,
+                phone: user.phone,
+                username: user.username,
+              }
+            : undefined,
           job: job
             ? {
                 title: job.title,
@@ -565,7 +674,23 @@ class RelationalDatabase {
       .sort((a, b) => new Date(b.applied_at).getTime() - new Date(a.applied_at).getTime());
   }
 
-  public updateApplicationStatus(id: number, status: ApplicationStatus): Application | null {
+  public updateApplicationStatus(
+    id: number,
+    status: ApplicationStatus,
+    responsePayload?: {
+      message?: string;
+      sender_name?: string;
+      sender_role?: string;
+      subject?: string;
+      interview_details?: {
+        date?: string;
+        time?: string;
+        location?: string;
+        format?: 'In-Person (Deva Hospital)' | 'Online Video Call' | 'Phone Interview';
+        instructions?: string;
+      };
+    }
+  ): Application | null {
     const app = this.applications.find((a) => a.id === id);
     if (!app) return null;
 
@@ -573,12 +698,89 @@ class RelationalDatabase {
     app.decision_date = new Date().toISOString();
     app.updated_at = new Date().toISOString();
 
+    if (responsePayload?.message) {
+      app.admin_response = responsePayload.message;
+      app.admin_response_date = new Date().toISOString();
+      app.admin_responder_name = responsePayload.sender_name || 'Dr. Evelyn Vance (Chief of HR)';
+    }
+
+    if (responsePayload?.interview_details) {
+      app.interview_details = responsePayload.interview_details;
+    }
+
+    if (responsePayload?.message || responsePayload?.interview_details) {
+      if (!app.responses) app.responses = [];
+      app.responses.push({
+        id: app.responses.length + 1,
+        application_id: app.id,
+        sender_name: responsePayload.sender_name || 'Dr. Evelyn Vance (Chief of HR)',
+        sender_role: responsePayload.sender_role || 'Hospital Recruitment Committee',
+        subject: responsePayload.subject || `Application Status Update: ${status}`,
+        message: responsePayload.message || `Status updated to ${status}.`,
+        status_at_time: status,
+        interview_details: responsePayload.interview_details,
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    this.persist();
+    return this.getApplicationById(id) || null;
+  }
+
+  public addApplicationResponse(
+    id: number,
+    payload: {
+      sender_name?: string;
+      sender_role?: string;
+      subject: string;
+      message: string;
+      status?: ApplicationStatus;
+      interview_details?: {
+        date?: string;
+        time?: string;
+        location?: string;
+        format?: 'In-Person (Deva Hospital)' | 'Online Video Call' | 'Phone Interview';
+        instructions?: string;
+      };
+    }
+  ): Application | null {
+    const app = this.applications.find((a) => a.id === id);
+    if (!app) return null;
+
+    if (payload.status) {
+      app.status = payload.status;
+      app.decision_date = new Date().toISOString();
+    }
+    app.admin_response = payload.message;
+    app.admin_response_date = new Date().toISOString();
+    app.admin_responder_name = payload.sender_name || 'Dr. Evelyn Vance (Chief of HR)';
+    app.updated_at = new Date().toISOString();
+
+    if (payload.interview_details) {
+      app.interview_details = payload.interview_details;
+    }
+
+    if (!app.responses) app.responses = [];
+    app.responses.push({
+      id: app.responses.length + 1,
+      application_id: app.id,
+      sender_name: payload.sender_name || 'Dr. Evelyn Vance (Chief of HR)',
+      sender_role: payload.sender_role || 'Hospital Recruitment Committee',
+      subject: payload.subject,
+      message: payload.message,
+      status_at_time: app.status,
+      interview_details: payload.interview_details,
+      created_at: new Date().toISOString(),
+    });
+
+    this.persist();
     return this.getApplicationById(id) || null;
   }
 
   // --- Documents Table Operations ---
   public addDocument(doc: DocumentRecord): DocumentRecord {
     this.documents.push(doc);
+    this.persist();
     return doc;
   }
 
@@ -591,6 +793,8 @@ class RelationalDatabase {
     const today = new Date().toISOString().split('T')[0];
     const activeJobs = this.jobs.filter((j) => j.status === 'open' && j.deadline >= today).length;
     const submitted = this.applications.filter((a) => a.status === 'Submitted').length;
+    const underReview = this.applications.filter((a) => a.status === 'Under Review').length;
+    const interviewScheduled = this.applications.filter((a) => a.status === 'Interview Scheduled').length;
     const accepted = this.applications.filter((a) => a.status === 'Accepted').length;
     const rejected = this.applications.filter((a) => a.status === 'Rejected').length;
 
@@ -601,6 +805,8 @@ class RelationalDatabase {
       active_jobs: activeJobs,
       total_applications: this.applications.length,
       submitted_applications: submitted,
+      under_review_applications: underReview,
+      interview_scheduled_applications: interviewScheduled,
       accepted_applications: accepted,
       rejected_applications: rejected,
       departments_count: uniqueDepts,
@@ -618,6 +824,7 @@ class RelationalDatabase {
     this.nextApplicationId = 1;
     this.nextDocId = 1;
     this.seedDatabase();
+    this.persist();
   }
 }
 

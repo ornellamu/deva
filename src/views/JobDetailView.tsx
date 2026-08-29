@@ -23,6 +23,7 @@ interface JobDetailViewProps {
   onBack: () => void;
   onApply: () => void;
   onOpenAuth: (mode?: 'login' | 'register') => void;
+  onNavigateToAdmin?: (jobId?: number) => void;
 }
 
 export const JobDetailView: React.FC<JobDetailViewProps> = ({
@@ -31,8 +32,10 @@ export const JobDetailView: React.FC<JobDetailViewProps> = ({
   onBack,
   onApply,
   onOpenAuth,
+  onNavigateToAdmin,
 }) => {
   const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const today = new Date().toISOString().split('T')[0];
   const isExpired = job.status === 'expired' || job.deadline < today;
@@ -142,44 +145,67 @@ export const JobDetailView: React.FC<JobDetailViewProps> = ({
           </div>
         </div>
 
-        {/* Apply CTA Bar */}
-        <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold text-teal-950">
-              {hasApplied
-                ? 'Your application dossier is registered and under review by the Hospital Credentialing Committee.'
-                : !user
-                ? 'Sign in or create a candidate account to upload your CV and required credentials.'
-                : 'Submit your CV, Application Letter, National ID, and certificates.'}
-            </p>
-          </div>
+        {/* Action CTA Bar */}
+        {isAdmin ? (
+          <div className="p-4 rounded-2xl bg-slate-900 text-white flex flex-col sm:flex-row items-center justify-between gap-4 border border-teal-800/60 shadow-md">
+            <div>
+              <div className="flex items-center gap-2 text-teal-300 text-xs font-bold mb-1">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>HR Administrator Control</span>
+              </div>
+              <p className="text-xs text-slate-300">
+                You are logged in as Administrator. Candidates submit their dossiers here for your review and decision.
+              </p>
+            </div>
 
-          {hasApplied ? (
-            <span className="px-6 py-2.5 rounded-xl bg-teal-200 text-teal-900 text-xs font-bold cursor-default whitespace-nowrap">
-              Applied
-            </span>
-          ) : isExpired || isClosed ? (
-            <span className="px-6 py-2.5 rounded-xl bg-slate-200 text-slate-600 text-xs font-bold cursor-not-allowed whitespace-nowrap">
-              Applications Closed
-            </span>
-          ) : !user ? (
-            <button
-              onClick={() => onOpenAuth('login')}
-              className="px-6 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5 whitespace-nowrap"
-            >
-              <Lock className="w-4 h-4" />
-              <span>Login to Apply</span>
-            </button>
-          ) : (
-            <button
-              onClick={handleApplyClick}
-              className="px-6 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold shadow-md shadow-teal-700/25 transition-all flex items-center gap-1.5 whitespace-nowrap"
-            >
-              <Send className="w-4 h-4" />
-              <span>Apply for Position</span>
-            </button>
-          )}
-        </div>
+            {onNavigateToAdmin && (
+              <button
+                onClick={() => onNavigateToAdmin(job.id)}
+                className="px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5 whitespace-nowrap"
+              >
+                <span>Manage in Admin Console</span>
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold text-teal-950">
+                {hasApplied
+                  ? 'Your application dossier is registered and under review by the Hospital Credentialing Committee.'
+                  : !user
+                  ? 'Sign in or create a candidate account to upload your CV and required credentials.'
+                  : 'Submit your CV, Application Letter, National ID, and certificates.'}
+              </p>
+            </div>
+
+            {hasApplied ? (
+              <span className="px-6 py-2.5 rounded-xl bg-teal-200 text-teal-900 text-xs font-bold cursor-default whitespace-nowrap">
+                Applied
+              </span>
+            ) : isExpired || isClosed ? (
+              <span className="px-6 py-2.5 rounded-xl bg-slate-200 text-slate-600 text-xs font-bold cursor-not-allowed whitespace-nowrap">
+                Applications Closed
+              </span>
+            ) : !user ? (
+              <button
+                onClick={() => onOpenAuth('login')}
+                className="px-6 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5 whitespace-nowrap"
+              >
+                <Lock className="w-4 h-4" />
+                <span>Login to Apply</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleApplyClick}
+                className="px-6 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold shadow-md shadow-teal-700/25 transition-all flex items-center gap-1.5 whitespace-nowrap"
+              >
+                <Send className="w-4 h-4" />
+                <span>Apply for Position</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Description & Responsibilities Section */}

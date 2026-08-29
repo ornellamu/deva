@@ -29,6 +29,7 @@ export const api = {
     full_name: string;
     email: string;
     phone: string;
+    username?: string;
     password: string;
     confirm_password: string;
   }): Promise<{ message: string; token: string; user: User }> {
@@ -41,7 +42,9 @@ export const api = {
   },
 
   async login(data: {
-    email: string;
+    email?: string;
+    username?: string;
+    identifier?: string;
     password: string;
   }): Promise<{ message: string; token: string; user: User }> {
     const res = await fetch(`${API_BASE}/auth/login`, {
@@ -61,6 +64,7 @@ export const api = {
 
   async updateProfile(data: {
     full_name?: string;
+    username?: string;
     email?: string;
     phone?: string;
     current_password?: string;
@@ -186,7 +190,13 @@ export const api = {
 
   async adminUpdateApplicationStatus(
     id: number,
-    status: ApplicationStatus
+    status: ApplicationStatus,
+    payload?: {
+      message?: string;
+      interview_details?: any;
+      sender_name?: string;
+      subject?: string;
+    }
   ): Promise<{ message: string; application: Application; email_status: string }> {
     const res = await fetch(`${API_BASE}/applications/admin/${id}/status`, {
       method: 'PUT',
@@ -194,7 +204,29 @@ export const api = {
         'Content-Type': 'application/json',
         ...getAuthHeader(),
       },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, ...payload }),
+    });
+    return handleResponse(res);
+  },
+
+  async adminRespondToApplicant(
+    id: number,
+    responsePayload: {
+      subject?: string;
+      message: string;
+      status?: ApplicationStatus;
+      interview_details?: any;
+      sender_name?: string;
+      sender_role?: string;
+    }
+  ): Promise<{ message: string; application: Application; email_status: string }> {
+    const res = await fetch(`${API_BASE}/applications/admin/${id}/respond`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify(responsePayload),
     });
     return handleResponse(res);
   },

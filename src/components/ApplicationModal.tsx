@@ -39,6 +39,11 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
   const [letterFile, setLetterFile] = useState<File | null>(null);
   const [idFile, setIdFile] = useState<File | null>(null);
   const [certificateFiles, setCertificateFiles] = useState<File[]>([]);
+  const [yearsExperience, setYearsExperience] = useState<string>('');
+  const [licenseNumber, setLicenseNumber] = useState<string>('');
+  const [qualification, setQualification] = useState<string>('');
+  const [currentEmployer, setCurrentEmployer] = useState<string>('');
+  const [noticePeriod, setNoticePeriod] = useState<string>('Immediate');
   const [notes, setNotes] = useState<string>('');
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -113,6 +118,11 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
       const formData = new FormData();
       formData.append('job_id', String(job.id));
       if (notes.trim()) formData.append('notes', notes.trim());
+      if (yearsExperience.trim()) formData.append('years_of_experience', yearsExperience.trim());
+      if (licenseNumber.trim()) formData.append('license_number', licenseNumber.trim());
+      if (qualification.trim()) formData.append('qualification', qualification.trim());
+      if (currentEmployer.trim()) formData.append('current_employer', currentEmployer.trim());
+      if (noticePeriod.trim()) formData.append('notice_period', noticePeriod.trim());
 
       formData.append('cv', cvFile);
       formData.append('application_letter', letterFile);
@@ -420,16 +430,98 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
             </div>
           </div>
 
+          {/* Applicant Qualifications & Professional Information Stated */}
+          <div className="space-y-4 pt-2 border-t border-slate-200">
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+              Applicant Qualifications & Professional Details
+            </h3>
+            <p className="text-xs text-slate-500">
+              Provide your clinical credentials, licensure, and professional background for review by hospital administration.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Medical License / Registration No.
+                </label>
+                <input
+                  type="text"
+                  value={licenseNumber}
+                  onChange={(e) => setLicenseNumber(e.target.value)}
+                  placeholder="e.g. KMPDC-MD-88492 or RN-55102"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-xs text-slate-800 placeholder-slate-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Years of Healthcare Experience
+                </label>
+                <input
+                  type="text"
+                  value={yearsExperience}
+                  onChange={(e) => setYearsExperience(e.target.value)}
+                  placeholder="e.g. 6 Years Clinical Experience"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-xs text-slate-800 placeholder-slate-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Highest Qualification / Specialization
+                </label>
+                <input
+                  type="text"
+                  value={qualification}
+                  onChange={(e) => setQualification(e.target.value)}
+                  placeholder="e.g. MBChB, MMed Cardiology, BSN Nursing"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-xs text-slate-800 placeholder-slate-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Current Employer / Medical Center
+                </label>
+                <input
+                  type="text"
+                  value={currentEmployer}
+                  onChange={(e) => setCurrentEmployer(e.target.value)}
+                  placeholder="e.g. Metropolitan General Hospital"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-xs text-slate-800 placeholder-slate-400"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Available Notice Period
+                </label>
+                <select
+                  value={noticePeriod}
+                  onChange={(e) => setNoticePeriod(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-xs text-slate-800 bg-white"
+                >
+                  <option value="Immediate">Immediate Availability</option>
+                  <option value="1 Week">1 Week Notice</option>
+                  <option value="2 Weeks">2 Weeks Notice</option>
+                  <option value="1 Month">1 Month Notice</option>
+                  <option value="2 Months">2 Months Notice</option>
+                  <option value="3 Months">3 Months Notice</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
           {/* Optional Notes */}
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-              Additional Notes or Relevant Registration Numbers (Optional)
+              Personal Statement & Additional Information Stated
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              placeholder="e.g. Medical Council Registration #MD-884920, Notice period: 2 weeks..."
+              placeholder="State any specific achievements, clinical sub-specialties, shift availability, or comments for the recruiting administration..."
               className="w-full p-3 rounded-xl border border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-xs text-slate-800 placeholder-slate-400 transition-all"
             />
           </div>

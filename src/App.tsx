@@ -173,6 +173,10 @@ function MainApp() {
             }}
             onApply={() => setIsApplicationModalOpen(true)}
             onOpenAuth={handleOpenAuth}
+            onNavigateToAdmin={() => {
+              setCurrentView('admin');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           />
         )}
 

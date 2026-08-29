@@ -26,6 +26,7 @@ import { api } from '../services/api.js';
 import { DocumentViewerModal } from '../components/DocumentViewerModal.js';
 import { AdminStatusConfirmModal } from '../components/AdminStatusConfirmModal.js';
 import { AdminJobModal } from '../components/AdminJobModal.js';
+import { AdminApplicationDetailModal } from '../components/AdminApplicationDetailModal.js';
 
 interface AdminDashboardViewProps {
   onOpenGuide: () => void;
@@ -59,11 +60,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onOpenGu
   const [targetStatus, setTargetStatus] = useState<ApplicationStatus>('Accepted');
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
+  const [selectedDetailApp, setSelectedDetailApp] = useState<Application | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [isJobModalOpen, setIsJobModalOpen] = useState(false);
 
-  const loadAllData = async () => {
-    setLoading(true);
+  const loadAllData = async (silent = false) => {
+    if (!silent) setLoading(true);
     setErrorMessage(null);
     try {
       const [statsRes, appsRes, jobsRes, emailsRes] = await Promise.all([
@@ -79,14 +83,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onOpenGu
       setEmailLogs(emailsRes.logs);
     } catch (err: any) {
       console.error('Failed to load admin data:', err);
-      setErrorMessage(err.message || 'Failed to load administrator records.');
+      if (!silent) {
+        setErrorMessage(err.message || 'Failed to load administrator records.');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadAllData();
+    // Auto-poll applications and stats every 5 seconds for real-time applicant reception
+    const interval = setInterval(() => {
+      loadAllData(true);
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const showToast = (msg: string) => {
@@ -394,12 +405,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onOpenGu
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold tracking-wider">
                   <tr>
-                    <th className="py-3.5 px-4">Applicant</th>
+                    <th className="py-3.5 px-4">Applicant & Credentials Stated</th>
                     <th className="py-3.5 px-4">Position & Dept</th>
-                    <th className="py-3.5 px-4">Date Applied</th>
+                    <th className="py-3.5 px-4">Experience & Licensure</th>
                     <th className="py-3.5 px-4">Dossier</th>
-                    <th className="py-3.5 px-4">Status</th>
-                    <th className="py-3.5 px-4 text-right">Recruitment Decision</th>
+                    <th className="py-3.5 px-4">Status & Responses</th>
+                    <th className="py-3.5 px-4 text-right">Administrative Control</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -407,13 +418,22 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onOpenGu
                     filteredApps.map((app) => {
                       const isAccepted = app.status === 'Accepted';
                       const isRejected = app.status === 'Rejected';
+                      const isInterview = app.status === 'Interview Scheduled';
+                      const isReview = app.status === 'Under Review';
                       const isSubmitted = app.status === 'Submitted';
+
+                      const responseCount = app.responses?.length || (app.admin_response ? 1 : 0);
 
                       return (
                         <tr key={app.id} className="hover:bg-slate-50/80 transition-colors">
                           {/* Applicant Info */}
                           <td className="py-4 px-4">
-                            <div className="font-bold text-slate-900">{app.user?.full_name}</div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900">{app.user?.full_name}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 font-mono text-slate-500">
+                                @{app.user?.username || 'user'}
+                              </span>
+                            </div>
                             <div className="text-slate-500 text-[11px]">{app.user?.email}</div>
                             <div className="text-slate-400 text-[10px]">{app.user?.phone}</div>
                           </td>
@@ -422,15 +442,22 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onOpenGu
                           <td className="py-4 px-4">
                             <div className="font-bold text-teal-800">{app.job?.title}</div>
                             <div className="text-slate-500 text-[11px]">{app.job?.department}</div>
+                            <div className="text-[10px] text-slate-400">
+                              Applied {new Date(app.applied_at || app.created_at).toLocaleDateString()}
+                            </div>
                           </td>
 
-                          {/* Date Applied */}
-                          <td className="py-4 px-4 text-slate-500 whitespace-nowrap">
-                            {new Date(app.created_at).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })}
+                          {/* Information Stated by Applicant */}
+                          <td className="py-4 px-4">
+                            <div className="font-medium text-slate-900">
+                              {app.years_of_experience || 'Clinical Professional'}
+                            </div>
+                            <div className="text-teal-700 font-mono text-[11px]">
+                              {app.license_number || 'Board Certified'}
+                            </div>
+                            <div className="text-slate-500 text-[10px] truncate max-w-[180px]">
+                              {app.qualification || 'Medical Credentials'}
+                            </div>
                           </td>
 
                           {/* Dossier / Documents */}
@@ -447,61 +474,65 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onOpenGu
                             </button>
                           </td>
 
-                          {/* Status Pill */}
+                          {/* Status Pill & Response Count */}
                           <td className="py-4 px-4">
-                            {isAccepted ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
-                                <CheckCircle2 className="w-3 h-3" />
-                                Accepted
-                              </span>
-                            ) : isRejected ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800">
-                                <XCircle className="w-3 h-3" />
-                                Rejected
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800">
-                                <Clock className="w-3 h-3" />
-                                Submitted
-                              </span>
-                            )}
+                            <div className="space-y-1">
+                              {isAccepted ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  Accepted
+                                </span>
+                              ) : isRejected ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800">
+                                  <XCircle className="w-3 h-3" />
+                                  Rejected
+                                </span>
+                              ) : isInterview ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-purple-800">
+                                  <Clock className="w-3 h-3" />
+                                  Interview Scheduled
+                                </span>
+                              ) : isReview ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">
+                                  <Clock className="w-3 h-3" />
+                                  Under Review
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800">
+                                  <Clock className="w-3 h-3" />
+                                  Submitted
+                                </span>
+                              )}
+
+                              {responseCount > 0 && (
+                                <div className="text-[10px] text-teal-700 font-semibold">
+                                  {responseCount} Response{responseCount > 1 ? 's' : ''} Sent
+                                </div>
+                              )}
+                            </div>
                           </td>
 
-                          {/* Actions */}
+                          {/* Actions: Review, Respond & Control */}
                           <td className="py-4 px-4 text-right">
                             <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setSelectedDetailApp(app);
+                                  setIsDetailModalOpen(true);
+                                }}
+                                className="px-3 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-800 text-white font-bold text-[11px] shadow-sm transition-all flex items-center gap-1"
+                              >
+                                <span>Review & Respond</span>
+                                <ChevronRight className="w-3 h-3" />
+                              </button>
+
                               {isSubmitted && (
-                                <>
-                                  <button
-                                    onClick={() => handleOpenStatusConfirm(app, 'Accepted')}
-                                    className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[11px] shadow-sm transition-all"
-                                  >
-                                    Accept
-                                  </button>
-                                  <button
-                                    onClick={() => handleOpenStatusConfirm(app, 'Rejected')}
-                                    className="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-[11px] transition-all"
-                                  >
-                                    Reject
-                                  </button>
-                                </>
-                              )}
-
-                              {isAccepted && (
-                                <button
-                                  onClick={() => handleOpenStatusConfirm(app, 'Rejected')}
-                                  className="px-2.5 py-1 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 text-[11px] transition-all"
-                                >
-                                  Re-evaluate to Reject
-                                </button>
-                              )}
-
-                              {isRejected && (
                                 <button
                                   onClick={() => handleOpenStatusConfirm(app, 'Accepted')}
-                                  className="px-2.5 py-1 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 text-[11px] transition-all"
+                                  className="px-2 py-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-[11px] transition-all"
+                                  title="Quick Accept"
                                 >
-                                  Re-evaluate to Accept
+                                  Accept
                                 </button>
                               )}
                             </div>
@@ -672,6 +703,29 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onOpenGu
           }}
           onConfirm={handleConfirmStatusChange}
           loading={actionLoading}
+        />
+      )}
+
+      {/* Candidate Dossier & Response Control Modal */}
+      {selectedDetailApp && (
+        <AdminApplicationDetailModal
+          application={selectedDetailApp}
+          isOpen={isDetailModalOpen}
+          onClose={() => {
+            setIsDetailModalOpen(false);
+            setSelectedDetailApp(null);
+          }}
+          onUpdated={async () => {
+            await loadAllData();
+            // Refresh currently selected detail app with updated server data
+            const appsRes = await api.adminGetAllApplications();
+            const updated = appsRes.applications.find((a: Application) => a.id === selectedDetailApp.id);
+            if (updated) setSelectedDetailApp(updated);
+          }}
+          onViewDocuments={(app) => {
+            setViewDocsApp(app);
+            setIsDocsOpen(true);
+          }}
         />
       )}
 

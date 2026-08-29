@@ -8,11 +8,12 @@ interface AuthContextType {
   isLoading: boolean;
   isAdmin: boolean;
   isApplicant: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<void>;
   register: (data: {
     full_name: string;
     email: string;
     phone: string;
+    username?: string;
     password: string;
     confirm_password: string;
   }) => Promise<void>;
@@ -21,6 +22,7 @@ interface AuthContextType {
     full_name?: string;
     email?: string;
     phone?: string;
+    username?: string;
     current_password?: string;
     new_password?: string;
   }) => Promise<void>;
@@ -55,10 +57,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (identifier: string, password: string) => {
     setIsLoading(true);
     try {
-      const res = await api.login({ email, password });
+      const res = await api.login({ identifier, password });
       localStorage.setItem('deva_auth_token', res.token);
       setToken(res.token);
       setUser(res.user);
@@ -71,6 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     full_name: string;
     email: string;
     phone: string;
+    username?: string;
     password: string;
     confirm_password: string;
   }) => {
@@ -93,6 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateProfile = async (data: {
     full_name?: string;
+    username?: string;
     email?: string;
     phone?: string;
     current_password?: string;

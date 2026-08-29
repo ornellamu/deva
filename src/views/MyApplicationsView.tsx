@@ -13,6 +13,10 @@ import {
   Download,
   ShieldCheck,
   MailCheck,
+  MessageSquare,
+  Award,
+  Video,
+  MapPin,
 } from 'lucide-react';
 import { Application, DocumentRecord } from '../types.js';
 import { api } from '../services/api.js';
@@ -64,9 +68,9 @@ export const MyApplicationsView: React.FC<MyApplicationsViewProps> = ({ onBrowse
             <FileText className="w-3.5 h-3.5" />
             Candidate Application History
           </span>
-          <h1 className="text-2xl sm:text-3xl font-bold font-serif">My Job Applications</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold font-serif">My Job Applications & Responses</h1>
           <p className="text-xs text-slate-300 mt-1">
-            Track your recruitment status, view uploaded credentials, and monitor hospital decisions.
+            Track your recruitment status, review administrative responses and interview schedules, and inspect your dossier.
           </p>
         </div>
 
@@ -110,16 +114,18 @@ export const MyApplicationsView: React.FC<MyApplicationsViewProps> = ({ onBrowse
           </button>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {applications.map((app) => {
             const isAccepted = app.status === 'Accepted';
             const isRejected = app.status === 'Rejected';
+            const isInterview = app.status === 'Interview Scheduled';
+            const isReview = app.status === 'Under Review';
             const isSubmitted = app.status === 'Submitted';
 
             return (
               <div
                 key={app.id}
-                className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-sm hover:shadow-md transition-all space-y-4"
+                className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-sm hover:shadow-md transition-all space-y-5"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div>
@@ -152,37 +158,136 @@ export const MyApplicationsView: React.FC<MyApplicationsViewProps> = ({ onBrowse
                         <XCircle className="w-4 h-4 text-rose-600" />
                         <span>Application Not Selected</span>
                       </div>
+                    ) : isInterview ? (
+                      <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-300 animate-pulse">
+                        <Clock className="w-4 h-4 text-purple-600" />
+                        <span>Interview Scheduled</span>
+                      </div>
+                    ) : isReview ? (
+                      <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                        <Clock className="w-4 h-4 text-amber-600" />
+                        <span>Under Review</span>
+                      </div>
                     ) : (
                       <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300">
                         <Clock className="w-4 h-4 text-blue-600" />
-                        <span>Under Credentialing Review</span>
+                        <span>Submitted & Pending Review</span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Status Guidance Card */}
-                <div
-                  className={`p-4 rounded-xl text-xs space-y-1 ${
-                    isAccepted
-                      ? 'bg-emerald-50 border border-emerald-200 text-emerald-900'
-                      : isRejected
-                      ? 'bg-slate-50 border border-slate-200 text-slate-700'
-                      : 'bg-teal-50/70 border border-teal-100 text-teal-900'
-                  }`}
-                >
-                  <div className="font-bold flex items-center gap-1.5">
-                    <MailCheck className="w-4 h-4" />
-                    <span>Recruitment Directorate Notice:</span>
+                {/* Stated Information Card */}
+                {(app.license_number || app.years_of_experience || app.qualification || app.current_employer) && (
+                  <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Licensure / Reg #</span>
+                      <span className="font-mono font-bold text-slate-800">{app.license_number || 'Stated'}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Experience</span>
+                      <span className="font-semibold text-slate-800">{app.years_of_experience || 'Stated'}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Qualification</span>
+                      <span className="font-semibold text-slate-800 truncate block">{app.qualification || 'Stated'}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Notice Period</span>
+                      <span className="font-semibold text-teal-700">{app.notice_period || 'Immediate'}</span>
+                    </div>
                   </div>
-                  <p className="text-[11px] leading-relaxed">
-                    {isAccepted
-                      ? 'Congratulations! Your clinical credentials have been accepted. An onboarding orientation schedule has been dispatched to your email.'
-                      : isRejected
-                      ? 'Thank you for your interest in Deva Hospital. Although not selected for this opening, your profile remains in our talent database for future vacancies.'
-                      : 'Your application has been received and logged into the hospital database. The Credentialing Committee is evaluating candidate dossiers. You will receive an official decision notice by email.'}
-                  </p>
-                </div>
+                )}
+
+                {/* OFFICIAL ADMIN RESPONSES CONTAINER */}
+                {app.responses && app.responses.length > 0 ? (
+                  <div className="space-y-3 pt-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-teal-800 flex items-center gap-1.5">
+                      <MessageSquare className="w-4 h-4 text-teal-600" />
+                      Official Hospital Responses & Direct Feedback ({app.responses.length})
+                    </h4>
+                    {app.responses.map((resp, idx) => (
+                      <div
+                        key={resp.id || idx}
+                        className="p-4 rounded-2xl bg-teal-50/70 border border-teal-200/80 text-xs space-y-2.5"
+                      >
+                        <div className="flex items-center justify-between border-b border-teal-200/60 pb-2">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="w-4 h-4 text-teal-700" />
+                            <span className="font-bold text-teal-950">{resp.sender_name}</span>
+                            <span className="text-[11px] text-teal-700">({resp.sender_role})</span>
+                          </div>
+                          <span className="text-[10px] text-slate-500">
+                            {new Date(resp.created_at).toLocaleString()}
+                          </span>
+                        </div>
+
+                        <div className="font-bold text-slate-900">{resp.subject}</div>
+                        <p className="text-slate-700 whitespace-pre-line leading-relaxed bg-white/90 p-3 rounded-xl border border-teal-100">
+                          {resp.message}
+                        </p>
+
+                        {/* Interview Details if Scheduled */}
+                        {resp.interview_details && (
+                          <div className="p-3.5 bg-purple-50 border border-purple-200 rounded-xl space-y-1.5 text-purple-900">
+                            <div className="font-bold text-xs flex items-center gap-1.5 text-purple-950">
+                              <Calendar className="w-4 h-4 text-purple-700" />
+                              Scheduled Clinical Interview Details
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
+                              <div>
+                                <strong>Date & Time:</strong> {resp.interview_details.date} at {resp.interview_details.time}
+                              </div>
+                              <div>
+                                <strong>Format:</strong> {resp.interview_details.format}
+                              </div>
+                              <div className="sm:col-span-2">
+                                <strong>Location / Link:</strong> {resp.interview_details.location}
+                              </div>
+                              {resp.interview_details.instructions && (
+                                <div className="sm:col-span-2 text-purple-800">
+                                  <strong>Instructions:</strong> {resp.interview_details.instructions}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : app.admin_response ? (
+                  <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 text-xs space-y-2">
+                    <div className="font-bold text-teal-950 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-teal-700" />
+                      <span>{app.admin_responder_name || 'Hospital Administration'} Response:</span>
+                    </div>
+                    <p className="text-slate-700 whitespace-pre-line bg-white p-3 rounded-xl border border-teal-100">
+                      {app.admin_response}
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    className={`p-4 rounded-xl text-xs space-y-1 ${
+                      isAccepted
+                        ? 'bg-emerald-50 border border-emerald-200 text-emerald-900'
+                        : isRejected
+                        ? 'bg-slate-50 border border-slate-200 text-slate-700'
+                        : 'bg-teal-50/70 border border-teal-100 text-teal-900'
+                    }`}
+                  >
+                    <div className="font-bold flex items-center gap-1.5">
+                      <MailCheck className="w-4 h-4" />
+                      <span>Recruitment Directorate Notice:</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed">
+                      {isAccepted
+                        ? 'Congratulations! Your clinical credentials have been accepted. An onboarding orientation schedule has been dispatched to your email.'
+                        : isRejected
+                        ? 'Thank you for your interest in Deva Hospital. Although not selected for this opening, your profile remains in our talent database for future vacancies.'
+                        : 'Your application has been received and logged into the hospital database. The Credentialing Committee is evaluating candidate dossiers. You will receive an official decision notice by email.'}
+                    </p>
+                  </div>
+                )}
 
                 {/* Attached Documents Row */}
                 <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs border-t border-slate-100">
@@ -218,3 +323,4 @@ export const MyApplicationsView: React.FC<MyApplicationsViewProps> = ({ onBrowse
     </div>
   );
 };
+

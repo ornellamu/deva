@@ -5,6 +5,7 @@ export interface User {
   full_name: string;
   email: string;
   phone: string;
+  username?: string;
   password_hash: string;
   role: UserRole;
   created_at: string;
@@ -37,7 +38,32 @@ export interface Job {
   updated_at: string;
 }
 
-export type ApplicationStatus = 'Submitted' | 'Accepted' | 'Rejected';
+export type ApplicationStatus =
+  | 'Submitted'
+  | 'Under Review'
+  | 'Interview Scheduled'
+  | 'Accepted'
+  | 'Rejected';
+
+export interface InterviewDetails {
+  date?: string;
+  time?: string;
+  location?: string;
+  format?: 'In-Person (Deva Hospital)' | 'Online Video Call' | 'Phone Interview';
+  instructions?: string;
+}
+
+export interface ApplicationResponse {
+  id: number;
+  application_id: number;
+  sender_name: string;
+  sender_role: string;
+  subject: string;
+  message: string;
+  status_at_time: ApplicationStatus;
+  interview_details?: InterviewDetails;
+  created_at: string;
+}
 
 export interface Application {
   id: number;
@@ -45,6 +71,20 @@ export interface Application {
   job_id: number;
   status: ApplicationStatus;
   notes?: string;
+  // Additional applicant stated information
+  years_of_experience?: string;
+  license_number?: string;
+  qualification?: string;
+  current_employer?: string;
+  notice_period?: string;
+  
+  // Admin response & management
+  admin_response?: string;
+  admin_response_date?: string;
+  admin_responder_name?: string;
+  interview_details?: InterviewDetails;
+  responses?: ApplicationResponse[];
+  
   decision_date?: string;
   applied_at: string;
   updated_at: string;
@@ -53,6 +93,7 @@ export interface Application {
     full_name: string;
     email: string;
     phone: string;
+    username?: string;
   };
   job?: {
     title: string;
@@ -78,7 +119,13 @@ export interface DocumentRecord {
   created_at: string;
 }
 
-export type EmailType = 'submitted_confirmation' | 'accepted_notification' | 'rejected_notification';
+export type EmailType =
+  | 'submitted_confirmation'
+  | 'accepted_notification'
+  | 'rejected_notification'
+  | 'interview_notification'
+  | 'status_update_notification'
+  | 'admin_response_notification';
 
 export interface EmailLog {
   id: number;
@@ -97,7 +144,10 @@ export interface AdminStats {
   active_jobs: number;
   total_applications: number;
   submitted_applications: number;
+  under_review_applications: number;
+  interview_scheduled_applications: number;
   accepted_applications: number;
   rejected_applications: number;
   departments_count: number;
 }
+

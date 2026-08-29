@@ -28,7 +28,7 @@ const applicationUploadFields = upload.fields([
 router.post(
   '/',
   requireAuth,
-  applicationUploadFields,
+  applicationUploadFields as any,
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const user = req.user;
@@ -37,7 +37,15 @@ router.post(
         return;
       }
 
-      const { job_id, notes } = req.body;
+      const {
+        job_id,
+        notes,
+        years_of_experience,
+        license_number,
+        qualification,
+        current_employer,
+        notice_period,
+      } = req.body;
       const parsedJobId = parseInt(job_id, 10);
 
       if (isNaN(parsedJobId)) {
@@ -103,8 +111,17 @@ router.post(
         }
       }
 
-      // Create application record
-      const application = db.createApplication(user.id, job.id, notes?.trim());
+      // Create application record with all applicant information stated
+      const application = db.createApplication({
+        userId: user.id,
+        jobId: job.id,
+        notes: notes?.trim(),
+        years_of_experience: years_of_experience?.trim(),
+        license_number: license_number?.trim(),
+        qualification: qualification?.trim(),
+        current_employer: current_employer?.trim(),
+        notice_period: notice_period?.trim(),
+      });
 
       // Upload and link documents
       const uploadedDocs = [];
@@ -219,18 +236,24 @@ router.get('/admin/all', requireAdmin, (req: AuthenticatedRequest, res: Response
   }
 });
 
-// 5. PUT /api/admin/applications/:id/status - Admin update status & send email
+// 5. PUT /api/admin/applications/:id/status - Admin update status & send email / custom response
 router.put('/admin/:id/status', requireAdmin, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const id = parseInt(req.params.id, 10);
-    const { status } = req.body;
+    const { status, message, interview_details, sender_name, subject } = req.body;
 
     if (isNaN(id)) {
       res.status(400).json({ error: 'Invalid application ID.' });
       return;
     }
 
-    const validStatuses: ApplicationStatus[] = ['Submitted', 'Accepted', 'Rejected'];
+    const validStatuses: ApplicationStatus[] = [
+      'Submitted',
+      'Under Review',
+      'Interview Scheduled',
+      'Accepted',
+      'Rejected',
+    ];
     if (!validStatuses.includes(status)) {
       res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
       return;
@@ -242,30 +265,32 @@ router.put('/admin/:id/status', requireAdmin, async (req: AuthenticatedRequest, 
       return;
     }
 
-    const updatedApp = db.updateApplicationStatus(id, status);
+    const updatedApp = db.updateApplicationStatus(id, status, {
+      message: message?.trim(),
+      sender_name: sender_name?.trim() || req.user?.full_name || 'Dr. Evelyn Vance (Chief of HR)',
+      subject: subject?.trim(),
+      interview_details: interview_details,
+    });
 
-    // Send automated email if status changed to Accepted or Rejected
-    let emailStatus = 'No email dispatched for current status.';
-    if (status === 'Accepted' && application.user && application.job) {
+    // Send automated email according to status or custom message
+    let emailStatus = 'Status recorded.';
+    if (application.user && application.job) {
+      let emailType: any = 'status_update_notification';
+      if (status === 'Accepted') emailType = 'accepted_notification';
+      else if (status === 'Rejected') emailType = 'rejected_notification';
+      else if (status === 'Interview Scheduled') emailType = 'interview_notification';
+
       const emailResult = await sendApplicationEmail({
-        type: 'accepted_notification',
+        type: emailType,
         recipientEmail: application.user.email,
         recipientName: application.user.full_name,
         jobTitle: application.job.title,
         department: application.job.department,
         applicationId: application.id,
+        customMessage: message,
+        interviewDetails: interview_details,
       });
-      emailStatus = emailResult.providerMessage || 'Accepted notice dispatched.';
-    } else if (status === 'Rejected' && application.user && application.job) {
-      const emailResult = await sendApplicationEmail({
-        type: 'rejected_notification',
-        recipientEmail: application.user.email,
-        recipientName: application.user.full_name,
-        jobTitle: application.job.title,
-        department: application.job.department,
-        applicationId: application.id,
-      });
-      emailStatus = emailResult.providerMessage || 'Rejection notice dispatched.';
+      emailStatus = emailResult.providerMessage || `Notification email dispatched to ${application.user.email}.`;
     }
 
     res.json({
@@ -276,6 +301,67 @@ router.put('/admin/:id/status', requireAdmin, async (req: AuthenticatedRequest, 
   } catch (error: any) {
     console.error('Error updating application status:', error);
     res.status(500).json({ error: 'Failed to update application status.' });
+  }
+});
+
+// 6. POST /api/admin/applications/:id/respond - Admin send direct official response / interview invitation to applicant
+router.post('/admin/:id/respond', requireAdmin, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { subject, message, status, interview_details, sender_name, sender_role } = req.body;
+
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Invalid application ID.' });
+      return;
+    }
+
+    if (!message || !message.trim()) {
+      res.status(400).json({ error: 'Response message text is required.' });
+      return;
+    }
+
+    const application = db.getApplicationById(id);
+    if (!application) {
+      res.status(404).json({ error: 'Application not found.' });
+      return;
+    }
+
+    const effectiveSender = sender_name || req.user?.full_name || 'Dr. Evelyn Vance (Chief of HR)';
+    const effectiveSubject = subject || `Official Response: Deva Hospital Application (#APP-${String(id).padStart(5, '0')})`;
+
+    const updatedApp = db.addApplicationResponse(id, {
+      sender_name: effectiveSender,
+      sender_role: sender_role || 'Hospital HR Recruitment Committee',
+      subject: effectiveSubject,
+      message: message.trim(),
+      status: status,
+      interview_details: interview_details,
+    });
+
+    let emailStatus = 'Response recorded.';
+    if (application.user && application.job) {
+      const emailType = status === 'Interview Scheduled' ? 'interview_notification' : 'admin_response_notification';
+      const emailResult = await sendApplicationEmail({
+        type: emailType,
+        recipientEmail: application.user.email,
+        recipientName: application.user.full_name,
+        jobTitle: application.job.title,
+        department: application.job.department,
+        applicationId: application.id,
+        customMessage: message.trim(),
+        interviewDetails: interview_details,
+      });
+      emailStatus = emailResult.providerMessage || `Direct response sent to ${application.user.email}.`;
+    }
+
+    res.json({
+      message: 'Official response submitted and notification email dispatched to applicant.',
+      application: updatedApp,
+      email_status: emailStatus,
+    });
+  } catch (error: any) {
+    console.error('Error sending response to applicant:', error);
+    res.status(500).json({ error: 'Failed to dispatch response to applicant.' });
   }
 });
 

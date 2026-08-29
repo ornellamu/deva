@@ -38,7 +38,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Form states
+  const [loginIdentifier, setLoginIdentifier] = useState('');
   const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -47,7 +49,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   if (!isOpen) return null;
 
   const resetForm = () => {
+    setLoginIdentifier('');
     setFullName('');
+    setUsername('');
     setEmail('');
     setPhone('');
     setPassword('');
@@ -65,19 +69,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     setErrorMessage(null);
 
-    if (!email || !password) {
-      setErrorMessage('Please enter both your email address and password.');
+    const identifier = loginIdentifier.trim();
+    if (!identifier || !password) {
+      setErrorMessage('Please enter your email or username and password.');
       return;
     }
 
     setLoading(true);
     try {
-      await login(email.trim(), password);
+      await login(identifier, password);
       resetForm();
       onClose();
       if (onSuccess) onSuccess();
     } catch (err: any) {
-      setErrorMessage(err.message || 'Login failed. Please check your credentials.');
+      setErrorMessage(err.message || 'Invalid username/email or password credentials. Please verify and try again.');
     } finally {
       setLoading(false);
     }
@@ -88,11 +93,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setErrorMessage(null);
 
     if (!fullName || !email || !phone || !password || !confirmPassword) {
-      setErrorMessage('Please fill in all registration fields.');
+      setErrorMessage('Please fill in all required registration fields.');
       return;
     }
     if (password !== confirmPassword) {
-      setErrorMessage('Passwords do not match.');
+      setErrorMessage('Passwords do not match. Please re-type your password.');
       return;
     }
     if (password.length < 6) {
@@ -104,6 +109,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     try {
       await register({
         full_name: fullName.trim(),
+        username: username.trim() || undefined,
         email: email.trim(),
         phone: phone.trim(),
         password,
@@ -113,7 +119,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       onClose();
       if (onSuccess) onSuccess();
     } catch (err: any) {
-      setErrorMessage(err.message || 'Registration failed.');
+      setErrorMessage(err.message || 'Registration failed. Please check your information.');
     } finally {
       setLoading(false);
     }
@@ -138,18 +144,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
-
-  const fillDemoAdmin = () => {
-    setEmail('admin@devahospital.org');
-    setPassword('Admin@Deva2026!');
-    setErrorMessage(null);
-  };
-
-  const fillDemoApplicant = () => {
-    setEmail('michael.chen@gmail.com');
-    setPassword('Applicant@123');
-    setErrorMessage(null);
   };
 
   return (
@@ -217,16 +211,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Email Address
+                  Username or Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="e.g. yourname@example.com"
+                    type="text"
+                    value={loginIdentifier}
+                    onChange={(e) => setLoginIdentifier(e.target.value)}
+                    placeholder="e.g. murasa320@gmail.com or Admin"
                     required
+                    autoComplete="username"
                     className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-xs text-slate-800 placeholder-slate-400"
                   />
                 </div>
@@ -253,6 +248,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     required
+                    autoComplete="current-password"
                     className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-xs text-slate-800 placeholder-slate-400"
                   />
                   <button
@@ -272,40 +268,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Sign In</span>}
               </button>
-
-              {/* Quick-Fill Demo Bar for rapid evaluator testing */}
-              <div className="pt-4 border-t border-slate-100">
-                <p className="text-[10px] text-center font-bold text-slate-400 uppercase tracking-wider mb-2">
-                  ⚡ Quick Demo Fill
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={fillDemoAdmin}
-                    className="py-1.5 px-2 rounded-lg bg-teal-50 border border-teal-200 text-teal-800 text-[11px] font-semibold hover:bg-teal-100 transition-colors flex items-center justify-center gap-1"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
-                    <span>Admin HR</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={fillDemoApplicant}
-                    className="py-1.5 px-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-[11px] font-semibold hover:bg-blue-100 transition-colors flex items-center justify-center gap-1"
-                  >
-                    <User className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Applicant</span>
-                  </button>
-                </div>
-              </div>
             </form>
           )}
 
           {/* 2. REGISTRATION FORM */}
           {mode === 'register' && (
-            <form onSubmit={handleRegister} className="space-y-3.5">
+            <form onSubmit={handleRegister} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Full Name & Title
+                  Full Name & Title <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -320,26 +291,46 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="e.g. jane.smith@example.com"
-                    required
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-xs text-slate-800"
-                  />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Email Address <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="e.g. jane@example.com"
+                      required
+                      autoComplete="email"
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-xs text-slate-800"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Username <span className="text-slate-400 font-normal">(Optional)</span>
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="e.g. janesmith"
+                      autoComplete="username"
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-xs text-slate-800"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Phone Number
+                  Phone Number <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -357,27 +348,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Password
+                    Password <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder="Min. 6 chars"
                     required
+                    autoComplete="new-password"
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-xs text-slate-800"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Confirm Password
+                    Confirm Password <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder="Re-type password"
                     required
+                    autoComplete="new-password"
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-xs text-slate-800"
                   />
                 </div>
