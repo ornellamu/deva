@@ -1,5 +1,6 @@
 import React from 'react';
-import { Building2, Phone, Mail, MapPin, ShieldCheck, Award, HeartHandshake } from 'lucide-react';
+import { Phone, Mail, MapPin, ShieldCheck, Award, HeartHandshake } from 'lucide-react';
+import { HospitalLogo } from './HospitalLogo.js';
 
 interface FooterProps {
   onNavigate: (view: string) => void;
@@ -13,15 +14,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenGuide }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-slate-800">
           {/* Column 1: Hospital Brand */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold">
-                <Building2 className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="text-xl font-bold tracking-tight text-white font-serif">DEVA HOSPITAL</span>
-                <p className="text-xs text-teal-400 font-medium">Tertiary Medical & Research Center</p>
-              </div>
-            </div>
+            <HospitalLogo size="lg" variant="light" />
             <p className="text-sm text-slate-400 max-w-sm leading-relaxed">
               Deva Hospital is committed to delivering world-class healthcare through clinical excellence,
               compassionate patient care, cutting-edge medical research, and nurturing exceptional healthcare professionals.

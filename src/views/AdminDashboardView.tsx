@@ -20,9 +20,11 @@ import {
   RefreshCw,
   ExternalLink,
   ChevronRight,
+  LogOut,
 } from 'lucide-react';
 import { Application, Job, AdminStats, EmailLog, DocumentRecord, ApplicationStatus } from '../types.js';
 import { api } from '../services/api.js';
+import { useAuth } from '../context/AuthContext.js';
 import { DocumentViewerModal } from '../components/DocumentViewerModal.js';
 import { AdminStatusConfirmModal } from '../components/AdminStatusConfirmModal.js';
 import { AdminJobModal } from '../components/AdminJobModal.js';
@@ -30,9 +32,11 @@ import { AdminApplicationDetailModal } from '../components/AdminApplicationDetai
 
 interface AdminDashboardViewProps {
   onOpenGuide: () => void;
+  onNavigateHome?: () => void;
 }
 
-export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onOpenGuide }) => {
+export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onOpenGuide, onNavigateHome }) => {
+  const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState<'applications' | 'jobs' | 'emails'>('applications');
 
   // Data states
@@ -54,6 +58,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onOpenGu
 
   // Modals
   const [viewDocsApp, setViewDocsApp] = useState<Application | null>(null);
+  const [selectedDocId, setSelectedDocId] = useState<number | undefined>(undefined);
   const [isDocsOpen, setIsDocsOpen] = useState(false);
 
   const [confirmApp, setConfirmApp] = useState<Application | null>(null);
@@ -228,6 +233,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onOpenGu
             className="px-3.5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/30 text-xs font-semibold transition-all"
           >
             System Guide (13 Stages)
+          </button>
+
+          <button
+            onClick={() => {
+              logout();
+              if (onNavigateHome) {
+                onNavigateHome();
+              }
+            }}
+            className="px-3.5 py-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-400/30 text-xs font-semibold transition-all flex items-center gap-1.5"
+            title="Sign out of Administrator Session"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign Out</span>
           </button>
         </div>
       </div>
@@ -683,10 +702,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onOpenGu
         <DocumentViewerModal
           documents={viewDocsApp.documents || []}
           applicantName={viewDocsApp.user?.full_name}
+          initialDocumentId={selectedDocId}
           isOpen={isDocsOpen}
           onClose={() => {
             setIsDocsOpen(false);
             setViewDocsApp(null);
+            setSelectedDocId(undefined);
           }}
         />
       )}
@@ -722,8 +743,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onOpenGu
             const updated = appsRes.applications.find((a: Application) => a.id === selectedDetailApp.id);
             if (updated) setSelectedDetailApp(updated);
           }}
-          onViewDocuments={(app) => {
+          onViewDocuments={(app, docId) => {
             setViewDocsApp(app);
+            setSelectedDocId(docId);
             setIsDocsOpen(true);
           }}
         />

@@ -24,6 +24,7 @@ import {
   MapPin,
   HelpCircle,
   History,
+  Eye,
 } from 'lucide-react';
 import { Application, ApplicationStatus, InterviewDetails } from '../types.js';
 import { api } from '../services/api.js';
@@ -33,7 +34,7 @@ interface AdminApplicationDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdated: () => void;
-  onViewDocuments: (app: Application) => void;
+  onViewDocuments: (app: Application, docId?: number) => void;
 }
 
 export const AdminApplicationDetailModal: React.FC<AdminApplicationDetailModalProps> = ({
@@ -44,6 +45,8 @@ export const AdminApplicationDetailModal: React.FC<AdminApplicationDetailModalPr
   onViewDocuments,
 }) => {
   if (!isOpen || !application) return null;
+
+  const token = typeof window !== 'undefined' ? localStorage.getItem('deva_auth_token') || '' : '';
 
   const [activeTab, setActiveTab] = useState<'details' | 'respond' | 'history'>('details');
   const [selectedStatus, setSelectedStatus] = useState<ApplicationStatus>(application.status);
@@ -360,48 +363,72 @@ export const AdminApplicationDetailModal: React.FC<AdminApplicationDetailModalPr
                     onClick={() => onViewDocuments(application)}
                     className="px-3 py-1.5 rounded-lg bg-teal-50 border border-teal-200 text-teal-800 text-xs font-bold hover:bg-teal-100 transition-colors flex items-center gap-1.5"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <Eye className="w-3.5 h-3.5" />
                     <span>Open Interactive Document Viewer</span>
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {application.documents?.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="p-3 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-slate-100 transition-colors flex flex-col justify-between space-y-2"
-                    >
-                      <div className="flex items-start gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center shrink-0">
-                          {doc.document_type === 'cv' && <FileText className="w-4 h-4" />}
-                          {doc.document_type === 'application_letter' && <FileText className="w-4 h-4" />}
-                          {doc.document_type === 'national_id' && <CreditCard className="w-4 h-4" />}
-                          {doc.document_type === 'certificate' && <FileBadge className="w-4 h-4" />}
-                        </div>
-                        <div className="overflow-hidden">
-                          <p className="text-[10px] uppercase font-bold text-teal-700 truncate">
-                            {doc.document_type.replace('_', ' ')}
-                          </p>
-                          <p className="text-xs font-semibold text-slate-800 truncate" title={doc.file_name}>
-                            {doc.file_name}
-                          </p>
-                        </div>
-                      </div>
+                {(!application.documents || application.documents.length === 0) ? (
+                  <div className="p-6 text-center text-slate-500 text-xs bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                    No documents uploaded for this application yet.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {application.documents.map((doc) => {
+                      const authenticatedViewUrl =
+                        doc.file_url?.startsWith('data:') || doc.file_url?.startsWith('http')
+                          ? doc.file_url
+                          : `${doc.file_url || `/api/documents/${doc.id}/view`}${
+                              token ? `?token=${encodeURIComponent(token)}` : ''
+                            }`;
 
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-200">
-                        <span>{(doc.file_size / 1024).toFixed(0)} KB</span>
-                        <a
-                          href={doc.file_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-teal-700 font-bold hover:underline"
+                      return (
+                        <div
+                          key={doc.id}
+                          onClick={() => onViewDocuments(application, doc.id)}
+                          className="p-3 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-teal-50/50 hover:border-teal-300 transition-all flex flex-col justify-between space-y-2 cursor-pointer group"
                         >
-                          View File
-                        </a>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                          <div className="flex items-start gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-teal-100 group-hover:bg-teal-600 group-hover:text-white text-teal-800 flex items-center justify-center shrink-0 transition-colors">
+                              {doc.document_type === 'cv' && <FileText className="w-4 h-4" />}
+                              {doc.document_type === 'application_letter' && <FileText className="w-4 h-4" />}
+                              {doc.document_type === 'national_id' && <CreditCard className="w-4 h-4" />}
+                              {doc.document_type === 'certificate' && <FileBadge className="w-4 h-4" />}
+                            </div>
+                            <div className="overflow-hidden">
+                              <p className="text-[10px] uppercase font-bold text-teal-700 truncate">
+                                {doc.document_type.replace('_', ' ')}
+                              </p>
+                              <p className="text-xs font-semibold text-slate-800 truncate group-hover:text-teal-900" title={doc.file_name}>
+                                {doc.file_name}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-200">
+                            <span>{(doc.file_size / 1024).toFixed(0)} KB</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-teal-700 font-bold group-hover:underline flex items-center gap-0.5">
+                                <Eye className="w-3 h-3" />
+                                Inspect
+                              </span>
+                              <a
+                                href={authenticatedViewUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-slate-400 hover:text-slate-700 p-0.5"
+                                title="Open in separate tab"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Quick Action Button to jump to response */}

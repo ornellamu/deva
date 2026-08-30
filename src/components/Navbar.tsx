@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Building2,
   Briefcase,
   User,
   ShieldCheck,
@@ -9,12 +8,12 @@ import {
   X,
   FileText,
   BookOpen,
-  PhoneCall,
   Info,
   ChevronDown,
   Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
+import { HospitalLogo } from './HospitalLogo.js';
 
 interface NavbarProps {
   currentView: string;
@@ -41,6 +40,13 @@ export const Navbar: React.FC<NavbarProps> = ({
     setUserDropdownOpen(false);
   };
 
+  const handleLogout = () => {
+    setUserDropdownOpen(false);
+    setMobileMenuOpen(false);
+    logout();
+    onNavigate('home');
+  };
+
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -50,18 +56,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => handleNavClick('home')}
             className="flex items-center gap-3.5 group focus:outline-none text-left"
           >
-            <div className="w-12 h-12 rounded-xl bg-teal-700 text-white flex items-center justify-center shadow-md shadow-teal-700/20 group-hover:bg-teal-800 transition-colors">
-              <Building2 className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xl font-bold tracking-tight text-slate-900 font-serif">DEVA HOSPITAL</span>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-teal-100 text-teal-800">
-                  CAREERS
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 font-medium">Healthcare Staff Recruitment & Credentialing</p>
-            </div>
+            <HospitalLogo size="md" />
           </button>
 
           {/* Desktop Navigation Links */}
@@ -97,17 +92,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Info className="w-4 h-4" />
               About Deva
-            </button>
-            <button
-              onClick={() => handleNavClick('contact')}
-              className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                currentView === 'contact'
-                  ? 'text-teal-700 bg-teal-50 font-semibold'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              <PhoneCall className="w-4 h-4" />
-              Contact
             </button>
             <button
               onClick={onOpenGuide}
@@ -160,7 +144,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       </button>
                     ) : (
                       <button
-                        onClick={() => handleNavClick('portal')}
+                        onClick={() => handleNavClick('my-applications')}
                         className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-teal-50 hover:text-teal-800 flex items-center gap-2.5"
                       >
                         <FileText className="w-4 h-4 text-teal-600" />
@@ -182,10 +166,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <div className="border-t border-slate-100 my-1"></div>
 
                     <button
-                      onClick={() => {
-                        setUserDropdownOpen(false);
-                        logout();
-                      }}
+                      onClick={handleLogout}
                       className="w-full text-left px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2.5"
                     >
                       <LogOut className="w-4 h-4" />
@@ -256,15 +237,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             About Deva Hospital
           </button>
           <button
-            onClick={() => handleNavClick('contact')}
-            className={`w-full text-left px-3.5 py-2.5 rounded-lg text-base font-medium flex items-center gap-2 ${
-              currentView === 'contact' ? 'bg-teal-50 text-teal-800 font-semibold' : 'text-slate-700'
-            }`}
-          >
-            <PhoneCall className="w-4 h-4" />
-            Contact
-          </button>
-          <button
             onClick={() => {
               setMobileMenuOpen(false);
               onOpenGuide();
@@ -294,7 +266,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
                 ) : (
                   <button
-                    onClick={() => handleNavClick('portal')}
+                    onClick={() => handleNavClick('my-applications')}
                     className="w-full text-left px-3.5 py-2.5 rounded-lg text-base font-medium text-teal-800 bg-teal-50 flex items-center gap-2"
                   >
                     <FileText className="w-4 h-4 text-teal-600" />
@@ -314,10 +286,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
 
                 <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    logout();
-                  }}
+                  onClick={handleLogout}
                   className="w-full text-left px-3.5 py-2.5 rounded-lg text-base font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2"
                 >
                   <LogOut className="w-4 h-4" />

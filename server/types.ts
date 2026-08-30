@@ -137,16 +137,24 @@ export interface EmailLog {
   status: 'sent' | 'delivered' | 'failed';
   sent_at: string;
   body_preview?: string;
+  html_content?: string;
+  text_content?: string;
+  delivery_status?: string;
 }
 
 export interface AdminStats {
   total_jobs: number;
   active_jobs: number;
+  open_jobs?: number;
   total_applications: number;
+  total_candidates?: number;
+  submitted?: number;
   submitted_applications: number;
   under_review_applications: number;
   interview_scheduled_applications: number;
+  accepted?: number;
   accepted_applications: number;
+  rejected?: number;
   rejected_applications: number;
   departments_count: number;
 }

@@ -163,6 +163,13 @@ export const api = {
     return handleResponse(res);
   },
 
+  async getMyEmails(): Promise<{ count: number; emails: EmailLog[] }> {
+    const res = await fetch(`${API_BASE}/applications/my-emails`, {
+      headers: { ...getAuthHeader() },
+    });
+    return handleResponse(res);
+  },
+
   async getApplicationById(id: number): Promise<{ application: Application }> {
     const res = await fetch(`${API_BASE}/applications/${id}`, {
       headers: { ...getAuthHeader() },

@@ -3,7 +3,7 @@ import multer from 'multer';
 import { db } from '../db.js';
 import { requireAuth, requireAdmin, AuthenticatedRequest } from '../authMiddleware.js';
 import { validateFile, uploadToCloudStorage } from '../storageService.js';
-import { sendApplicationEmail } from '../emailService.js';
+import { sendApplicationEmail, getEmailsByRecipientEmail } from '../emailService.js';
 import { ApplicationStatus } from '../types.js';
 
 const router = express.Router();
@@ -126,20 +126,24 @@ router.post(
       // Upload and link documents
       const uploadedDocs = [];
 
-      const cvDoc = await uploadToCloudStorage(cvFile, 'cv', application.id);
+      const cvDocId = db.getNextDocId();
+      const cvDoc = await uploadToCloudStorage(cvFile, 'cv', application.id, cvDocId);
       db.addDocument(cvDoc);
       uploadedDocs.push(cvDoc);
 
-      const letterDoc = await uploadToCloudStorage(letterFile, 'application_letter', application.id);
+      const letterDocId = db.getNextDocId();
+      const letterDoc = await uploadToCloudStorage(letterFile, 'application_letter', application.id, letterDocId);
       db.addDocument(letterDoc);
       uploadedDocs.push(letterDoc);
 
-      const idDoc = await uploadToCloudStorage(idFile, 'national_id', application.id);
+      const idDocId = db.getNextDocId();
+      const idDoc = await uploadToCloudStorage(idFile, 'national_id', application.id, idDocId);
       db.addDocument(idDoc);
       uploadedDocs.push(idDoc);
 
       for (const certFile of certificateFiles) {
-        const certDoc = await uploadToCloudStorage(certFile, 'certificate', application.id);
+        const certDocId = db.getNextDocId();
+        const certDoc = await uploadToCloudStorage(certFile, 'certificate', application.id, certDocId);
         db.addDocument(certDoc);
         uploadedDocs.push(certDoc);
       }
@@ -184,6 +188,25 @@ router.get('/my-applications', requireAuth, (req: AuthenticatedRequest, res: Res
   } catch (error: any) {
     console.error('Error fetching user applications:', error);
     res.status(500).json({ error: 'Failed to retrieve your applications.' });
+  }
+});
+
+// 2b. GET /api/applications/my-emails - Get all official transactional emails & decision letters sent to logged-in user
+router.get('/my-emails', requireAuth, (req: AuthenticatedRequest, res: Response): void => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required.' });
+      return;
+    }
+
+    const emails = getEmailsByRecipientEmail(req.user.email);
+    res.json({
+      count: emails.length,
+      emails,
+    });
+  } catch (error: any) {
+    console.error('Error fetching user emails:', error);
+    res.status(500).json({ error: 'Failed to retrieve notification emails.' });
   }
 });
 
@@ -340,7 +363,17 @@ router.post('/admin/:id/respond', requireAdmin, async (req: AuthenticatedRequest
 
     let emailStatus = 'Response recorded.';
     if (application.user && application.job) {
-      const emailType = status === 'Interview Scheduled' ? 'interview_notification' : 'admin_response_notification';
+      let emailType: any = 'admin_response_notification';
+      if (status === 'Accepted') {
+        emailType = 'accepted_notification';
+      } else if (status === 'Rejected') {
+        emailType = 'rejected_notification';
+      } else if (status === 'Interview Scheduled') {
+        emailType = 'interview_notification';
+      } else if (status === 'Under Review') {
+        emailType = 'status_update_notification';
+      }
+
       const emailResult = await sendApplicationEmail({
         type: emailType,
         recipientEmail: application.user.email,

@@ -6,6 +6,7 @@ import authRoutes from './server/routes/auth.js';
 import jobsRoutes from './server/routes/jobs.js';
 import applicationsRoutes from './server/routes/applications.js';
 import adminRoutes from './server/routes/admin.js';
+import documentsRoutes from './server/routes/documents.js';
 
 async function startServer() {
   const app = express();
@@ -38,6 +39,7 @@ async function startServer() {
   app.use('/api/jobs', jobsRoutes);
   app.use('/api/applications', applicationsRoutes);
   app.use('/api/admin', adminRoutes);
+  app.use('/api/documents', documentsRoutes);
 
   // Global error handler for API
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

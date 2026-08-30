@@ -11,6 +11,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
+import { HospitalLogo } from './HospitalLogo.js';
 
 interface HeroProps {
   onViewJobs: () => void;
@@ -22,7 +23,7 @@ export const Hero: React.FC<HeroProps> = ({ onViewJobs, onOpenAuth, onOpenGuide 
   const { user } = useAuth();
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-teal-950 via-slate-900 to-slate-900 text-white pt-14 pb-20 lg:pt-20 lg:pb-28">
+    <section className="relative overflow-hidden bg-gradient-to-b from-teal-950 via-slate-900 to-slate-900 text-white pt-12 pb-20 lg:pt-16 lg:pb-28">
       {/* Abstract Medical Subtle Grid Background & Geometric Accents */}
       <div className="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(#14b8a6_1px,transparent_1px)] [background-size:24px_24px]"></div>
       <div className="absolute -top-40 -right-40 w-96 h-96 bg-teal-500/20 rounded-full blur-3xl pointer-events-none"></div>
@@ -32,9 +33,8 @@ export const Hero: React.FC<HeroProps> = ({ onViewJobs, onOpenAuth, onOpenGuide 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           {/* Main Hero Copy */}
           <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-800/60 border border-teal-600/40 text-teal-300 text-xs font-semibold backdrop-blur-sm">
-              <HeartPulse className="w-3.5 h-3.5 text-teal-400 animate-pulse" />
-              <span>Official 2026 Deva Hospital Staff Recruitment Intake</span>
+            <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3">
+              <HospitalLogo size="md" variant="light" className="bg-white/5 px-3 py-1.5 rounded-2xl border border-white/10" />
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white font-serif leading-[1.15]">

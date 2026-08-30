@@ -81,6 +81,17 @@ function MainApp() {
 
   useEffect(() => {
     fetchAppliedJobs();
+    if (!user) {
+      if (currentView === 'admin' || currentView === 'my-applications') {
+        setCurrentView('home');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      setIsAuthModalOpen(false);
+      setIsProfileModalOpen(false);
+    } else if (user.role !== 'admin' && currentView === 'admin') {
+      setCurrentView('home');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }, [user]);
 
   // Derived unique departments
@@ -190,7 +201,13 @@ function MainApp() {
         )}
 
         {currentView === 'admin' && (
-          <AdminDashboardView onOpenGuide={() => setIsGuideModalOpen(true)} />
+          <AdminDashboardView
+            onOpenGuide={() => setIsGuideModalOpen(true)}
+            onNavigateHome={() => {
+              setCurrentView('home');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
         )}
 
         {currentView === 'about' && (

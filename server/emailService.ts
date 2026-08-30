@@ -1,3 +1,4 @@
+import nodemailer from 'nodemailer';
 import { EmailLog, EmailType, InterviewDetails } from './types.js';
 
 // Predefined professional email templates for Deva Hospital Recruitment System
@@ -372,11 +373,44 @@ export async function sendApplicationEmail(params: {
   let sentStatus: 'sent' | 'delivered' | 'failed' = 'sent';
   let providerMessage = 'Email processed and logged successfully via Deva Dispatcher.';
 
-  // If a live Resend API key is configured in the environment, attempt real transactional dispatch
+  const emailFrom = process.env.EMAIL_FROM || 'Deva Hospital Recruitment <recruitment@devahospital.org>';
   const resendApiKey = process.env.EMAIL_API_KEY;
-  const emailFrom = process.env.EMAIL_FROM || 'recruitment@devahospital.org';
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  const smtpPort = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
+  const smtpSecure = process.env.SMTP_SECURE === 'true' || smtpPort === 465;
 
-  if (resendApiKey && resendApiKey.startsWith('re_')) {
+  // 1. Attempt Nodemailer SMTP if configured
+  if (smtpHost && smtpUser && smtpPass) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpSecure,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
+
+      await transporter.sendMail({
+        from: emailFrom,
+        to: recipientEmail,
+        subject: emailData.subject,
+        html: emailData.html,
+        text: emailData.text,
+      });
+
+      sentStatus = 'delivered';
+      providerMessage = `Live email delivered via SMTP to ${recipientEmail}.`;
+    } catch (err: any) {
+      console.warn('SMTP dispatch failed, checking alternatives:', err.message);
+    }
+  }
+
+  // 2. If SMTP was not used or failed, try Resend API if configured
+  if (sentStatus !== 'delivered' && resendApiKey && resendApiKey.startsWith('re_')) {
     try {
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -395,15 +429,15 @@ export async function sendApplicationEmail(params: {
 
       if (response.ok) {
         sentStatus = 'delivered';
-        providerMessage = 'Live email delivered via Resend API.';
+        providerMessage = `Live email delivered via Resend API to ${recipientEmail}.`;
       } else {
         const errorData = await response.json().catch(() => ({}));
-        console.warn('Resend dispatch notice (fallback to internal dispatch):', errorData);
+        console.warn('Resend dispatch notice (fallback to in-app portal):', errorData);
         sentStatus = 'sent';
-        providerMessage = 'Logged internally; external API rejected credentials.';
+        providerMessage = 'Logged in candidate portal; external API key unverified.';
       }
     } catch (err: any) {
-      console.warn('External email provider error (falling back to simulated dispatch):', err.message);
+      console.warn('External email provider error:', err.message);
       sentStatus = 'sent';
     }
   }
@@ -418,6 +452,9 @@ export async function sendApplicationEmail(params: {
     status: sentStatus,
     sent_at: new Date().toISOString(),
     body_preview: emailData.text.slice(0, 140) + '...',
+    html_content: emailData.html,
+    text_content: emailData.text,
+    delivery_status: sentStatus === 'delivered' ? 'Delivered to Inbox' : 'Dispatched & Synced to Portal',
   };
 
   emailLogsStore.unshift(newLog);
@@ -431,5 +468,10 @@ export async function sendApplicationEmail(params: {
 
 export function getEmailLogs(): EmailLog[] {
   return emailLogsStore;
+}
+
+export function getEmailsByRecipientEmail(recipientEmail: string): EmailLog[] {
+  const emailLower = recipientEmail.toLowerCase().trim();
+  return emailLogsStore.filter((log) => log.recipient_email.toLowerCase().trim() === emailLower);
 }
 

@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Building2,
   ShieldCheck,
   Award,
   HeartHandshake,
@@ -11,6 +10,7 @@ import {
   GraduationCap,
   Sparkles,
 } from 'lucide-react';
+import { HospitalLogo } from '../components/HospitalLogo.js';
 
 interface AboutViewProps {
   onViewJobs: () => void;
@@ -23,10 +23,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ onViewJobs, onOpenGuide })
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-teal-950 via-slate-900 to-teal-900 rounded-3xl p-8 sm:p-12 text-white shadow-xl relative overflow-hidden">
         <div className="max-w-2xl space-y-4 relative z-10">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-teal-800/80 text-teal-300 border border-teal-600/40">
-            <Building2 className="w-3.5 h-3.5" />
-            Tertiary Healthcare & Research
-          </span>
+          <HospitalLogo size="lg" variant="light" className="mb-2" />
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-serif leading-tight">
             About Deva Central Hospital
           </h1>
