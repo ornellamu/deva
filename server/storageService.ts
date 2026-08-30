@@ -11,11 +11,18 @@ export interface UploadedFileData {
   size: number;
 }
 
-const UPLOADS_DIR = path.join(process.cwd(), 'data', 'uploads');
+const isVercel = Boolean(process.env.VERCEL);
+const UPLOADS_DIR = isVercel
+  ? path.join('/tmp', 'uploads')
+  : path.join(process.cwd(), 'data', 'uploads');
 
-// Ensure uploads directory exists on disk
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+// Safely ensure uploads directory exists on disk
+try {
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  }
+} catch {
+  // Ignore in restricted execution environments
 }
 
 const ALLOWED_MIME_TYPES = [

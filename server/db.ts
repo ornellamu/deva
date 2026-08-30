@@ -12,7 +12,8 @@ import {
   ApplicationStatus,
 } from './types.js';
 
-const DB_FILE_PATH = path.join(process.cwd(), 'data', 'db_store.json');
+const PRIMARY_DB_PATH = path.join(process.cwd(), 'data', 'db_store.json');
+const TMP_DB_PATH = path.join('/tmp', 'db_store.json');
 
 // In-Memory Relational Engine mirroring MySQL schema with durable file-based persistence
 class RelationalDatabase {
@@ -35,59 +36,73 @@ class RelationalDatabase {
   }
 
   private loadFromDisk(): boolean {
-    try {
-      if (fs.existsSync(DB_FILE_PATH)) {
-        const raw = fs.readFileSync(DB_FILE_PATH, 'utf-8');
-        const data = JSON.parse(raw);
-        if (data && Array.isArray(data.users) && Array.isArray(data.jobs) && data.users.length > 0) {
-          // Filter out any default sample/mock applicant accounts and their applications
-          const demoEmails = ['michael.chen@gmail.com', 'sarah.jenkins@gmail.com', 'david.mwangi@gmail.com'];
-          const demoUserIds = (data.users || [])
-            .filter((u: any) => demoEmails.includes(u.email?.toLowerCase()))
-            .map((u: any) => u.id);
+    // Try TMP_DB_PATH first (on serverless / updated runs), then fallback to PRIMARY_DB_PATH
+    const pathsToTry = [TMP_DB_PATH, PRIMARY_DB_PATH];
 
-          this.users = (data.users || []).filter((u: any) => !demoEmails.includes(u.email?.toLowerCase()));
-          this.jobs = data.jobs || [];
-          this.applications = (data.applications || []).filter((a: any) => !demoUserIds.includes(a.user_id));
-          
-          const validAppIds = this.applications.map((a) => a.id);
-          this.documents = (data.documents || []).filter((d: any) => validAppIds.includes(d.application_id));
+    for (const targetPath of pathsToTry) {
+      try {
+        if (fs.existsSync(targetPath)) {
+          const raw = fs.readFileSync(targetPath, 'utf-8');
+          const data = JSON.parse(raw);
+          if (data && Array.isArray(data.users) && Array.isArray(data.jobs) && data.users.length > 0) {
+            // Filter out any default sample/mock applicant accounts and their applications
+            const demoEmails = ['michael.chen@gmail.com', 'sarah.jenkins@gmail.com', 'david.mwangi@gmail.com'];
+            const demoUserIds = (data.users || [])
+              .filter((u: any) => demoEmails.includes(u.email?.toLowerCase()))
+              .map((u: any) => u.id);
 
-          this.nextUserId = data.nextUserId || (this.users.length ? Math.max(...this.users.map((u: any) => u.id)) + 1 : 1);
-          this.nextJobId = data.nextJobId || (this.jobs.length ? Math.max(...this.jobs.map((j: any) => j.id)) + 1 : 1);
-          this.nextApplicationId = data.nextApplicationId || (this.applications.length ? Math.max(...this.applications.map((a: any) => a.id)) + 1 : 1);
-          this.nextDocId = data.nextDocId || (this.documents.length ? Math.max(...this.documents.map((d: any) => d.id)) + 1 : 1);
-          
-          // Ensure file is updated with cleaned records
-          this.persist();
-          return true;
+            this.users = (data.users || []).filter((u: any) => !demoEmails.includes(u.email?.toLowerCase()));
+            this.jobs = data.jobs || [];
+            this.applications = (data.applications || []).filter((a: any) => !demoUserIds.includes(a.user_id));
+            
+            const validAppIds = this.applications.map((a) => a.id);
+            this.documents = (data.documents || []).filter((d: any) => validAppIds.includes(d.application_id));
+
+            this.nextUserId = data.nextUserId || (this.users.length ? Math.max(...this.users.map((u: any) => u.id)) + 1 : 1);
+            this.nextJobId = data.nextJobId || (this.jobs.length ? Math.max(...this.jobs.map((j: any) => j.id)) + 1 : 1);
+            this.nextApplicationId = data.nextApplicationId || (this.applications.length ? Math.max(...this.applications.map((a: any) => a.id)) + 1 : 1);
+            this.nextDocId = data.nextDocId || (this.documents.length ? Math.max(...this.documents.map((d: any) => d.id)) + 1 : 1);
+            
+            this.persist();
+            return true;
+          }
         }
+      } catch (err) {
+        console.warn(`Could not load store from ${targetPath}:`, (err as any)?.message);
       }
-    } catch (err) {
-      console.error('Error reading database store from disk, reseeding:', err);
     }
     return false;
   }
 
   public persist(): void {
+    const state = {
+      nextUserId: this.nextUserId,
+      nextJobId: this.nextJobId,
+      nextApplicationId: this.nextApplicationId,
+      nextDocId: this.nextDocId,
+      users: this.users,
+      jobs: this.jobs,
+      applications: this.applications,
+      documents: this.documents,
+    };
+    const serialized = JSON.stringify(state, null, 2);
+
+    // Try persisting to /tmp first (always writable in Vercel serverless functions)
     try {
-      const dir = path.dirname(DB_FILE_PATH);
+      fs.writeFileSync(TMP_DB_PATH, serialized, 'utf-8');
+    } catch {
+      // ignore
+    }
+
+    // Also attempt persisting to local data directory if not read-only
+    try {
+      const dir = path.dirname(PRIMARY_DB_PATH);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      const state = {
-        nextUserId: this.nextUserId,
-        nextJobId: this.nextJobId,
-        nextApplicationId: this.nextApplicationId,
-        nextDocId: this.nextDocId,
-        users: this.users,
-        jobs: this.jobs,
-        applications: this.applications,
-        documents: this.documents,
-      };
-      fs.writeFileSync(DB_FILE_PATH, JSON.stringify(state, null, 2), 'utf-8');
-    } catch (err) {
-      console.error('Failed to write database store to disk:', err);
+      fs.writeFileSync(PRIMARY_DB_PATH, serialized, 'utf-8');
+    } catch {
+      // ignore read-only file system in cloud / serverless runs
     }
   }
 

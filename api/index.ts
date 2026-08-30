@@ -14,7 +14,7 @@ app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 // Health Check
-app.get('/api/health', (req, res) => {
+app.get(['/api/health', '/health', '/api', '/'], (req, res) => {
   res.json({
     status: 'ok',
     service: 'Deva Hospital Recruitment API (Vercel Serverless)',
@@ -22,12 +22,12 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// API Route Mounts
-app.use('/api/auth', authRoutes);
-app.use('/api/jobs', jobsRoutes);
-app.use('/api/applications', applicationsRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/documents', documentsRoutes);
+// API Route Mounts (Support both /api/* and root stripped paths)
+app.use(['/api/auth', '/auth'], authRoutes);
+app.use(['/api/jobs', '/jobs'], jobsRoutes);
+app.use(['/api/applications', '/applications'], applicationsRoutes);
+app.use(['/api/admin', '/admin'], adminRoutes);
+app.use(['/api/documents', '/documents'], documentsRoutes);
 
 // Global error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
